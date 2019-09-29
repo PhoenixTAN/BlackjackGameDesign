@@ -1,0 +1,272 @@
+package blackjack;
+
+import java.util.InputMismatchException;
+import java.util.Random;
+import java.util.Scanner;
+
+import players.CommonPlayer;
+import players.Dealer;
+
+/*
+Author: Ziqi Tan
+*/
+public class Deck { 
+	
+	private Dealer dealer;
+	private CommonPlayer[] commonPlayers;
+	private Card card[][];
+	private int remainCards; // The number of cards that have not been dealt.
+	private int shuffleThreshold;
+	
+	public Deck( int numOfDecks, int numOfPlayers) {
+		// Initialize a deck of play cards
+		shuffle(numOfDecks);
+		this.shuffleThreshold = numOfDecks * 52 / 2;
+		// printCards();
+		
+		
+		// Initialize players
+		initializePlayers(numOfPlayers);
+		// Initialize AI dealer.
+		initializeDealer();
+		
+		while( true ) {
+			gameStart();
+			if( !oneMoreRound() ) {
+				break;
+			}
+			newRoundInitialize();
+		}
+		
+									
+	}
+		
+	private void shuffle( int numOfDecks ) {
+		System.out.println("Shuffling...");
+		card = new Card[13*numOfDecks][4];
+		this.remainCards = numOfDecks * 52;
+		// 1~10, J, Q, K [13]
+		// heart, spade, club, diamond [4]
+		for( int i = 0; i < card.length; i++ ) {
+			card[i][0] = new Card(Integer.toString(i%13+1), "heart");
+			card[i][1] = new Card(Integer.toString(i%13+1), "spade");
+			card[i][2] = new Card(Integer.toString(i%13+1), "club");
+			card[i][3] = new Card(Integer.toString(i%13+1), "diamond");
+			switch(i%13+1) {
+				case 1:
+					card[i][0].setFace("A");
+					card[i][1].setFace("A");
+					card[i][2].setFace("A");
+					card[i][3].setFace("A");
+					break;
+				case 11:
+					card[i][0].setFace("J");
+					card[i][1].setFace("J");
+					card[i][2].setFace("J");
+					card[i][3].setFace("J");
+					break;
+				case 12:
+					card[i][0].setFace("Q");
+					card[i][1].setFace("Q");
+					card[i][2].setFace("Q");
+					card[i][3].setFace("Q");
+					break;
+				case 13:
+					card[i][0].setFace("K");
+					card[i][1].setFace("K");
+					card[i][2].setFace("K");
+					card[i][3].setFace("K");
+					break;
+			}
+		}
+		
+	}
+
+	private Card dealCard() {
+		// TODO Auto-generated method stub
+		Random rand = new Random();
+		int faceMin = 1;
+		int faceMax = this.card.length;
+		//System.out.println("length" + this.card.length);
+		int suitMin = 1;
+		int suitMax = 4;
+		
+		int randomFace;
+		int randomSuit;
+		
+		while( true ) {
+			randomFace = rand.nextInt(faceMax-faceMin+1) + faceMin;
+			randomSuit = rand.nextInt(suitMax-suitMin+1) + suitMin;
+			//System.out.println(randomFace + " " +randomSuit);
+			if( !card[randomFace-1][randomSuit-1].getDealt() ) {
+				card[randomFace-1][randomSuit-1].setDealt();
+				break;
+			}			
+		}
+
+		// System.out.println("Deal: " + face + " " + suit);
+		this.remainCards--;
+		
+		return card[randomFace-1][randomSuit-1];
+	}
+
+	private void printCards() {
+		for( int i = 0; i < card.length; i++ ) {
+			for( int j = 0; j < card[0].length; j++ ) {
+				System.out.println(card[i][j].getFace() + " " + card[i][j].getSuit() );
+			}
+			System.out.println();
+		}
+	}
+
+	private void initializePlayers(int numOfPlayers) {
+		this.commonPlayers = new CommonPlayer[numOfPlayers];
+		for( int i = 0; i < numOfPlayers; i++ ) {
+			System.out.print("Player" + i + " ");
+			this.commonPlayers[i] = new CommonPlayer("Player " + Integer.toString(i) );
+		}
+	}
+
+	private void initializeDealer() {
+		this.dealer = new Dealer("Unbeatable AI dealer");
+	}
+
+	private boolean needShuffle() {
+		if( this.remainCards <= this.shuffleThreshold ) {
+			return true;
+		}
+		return false;
+	}
+	
+	private void gameStart() {
+		// Dealer get two cards, one of which is not visible.
+		dealer.receiveCards(dealCard(), 0);
+		dealer.receiveCards(dealCard(), 0);
+		
+		// Show dealer's card.
+		System.out.println("Dealer's hand: [" + dealer.getDealerHand().getCards().get(0).getSuit() + " " +
+				dealer.getDealerHand().getCards().get(0).getFace()+ " "+  ", ? ] \n");
+		// System.out.println(dealer.getDealerHand().getStatus());
+		
+		// Every players get two cards.
+		for( int i = 0; i < commonPlayers.length; i++ ) {			
+			commonPlayers[i].receiveCards(dealCard(), 0);
+			commonPlayers[i].receiveCards(dealCard(), 0);
+			// commonPlayers[i].receiveCards(new Card("J", "diamond"), 0);
+			// commonPlayers[i].receiveCards(new Card("J", "heart"), 0);
+			System.out.print("Player" + i + "'s hand: ");
+			commonPlayers[i].getPlayerHand().get(0).printValue();
+			// System.out.println(commonPlayers[i].getPlayerHand().get(0).getStatus());
+		}
+		
+		// Every player take action.
+		for( int i = 0; i < commonPlayers.length; i++ ) {			
+			// Show all available actions for each hand.
+			System.out.print("Player" + i + "'s turn: ");
+			for( int j = 0; j < commonPlayers[i].getPlayerHand().size(); j++ ) {
+								
+				boolean hasNextAction = commonPlayers[i].showAvailableActions(j);
+				while(hasNextAction) {
+					
+					int choice = commonPlayers[i].inputActions(j);
+					System.out.print("Player" + i + "'s hand" + j + ": ");
+					switch(choice) {
+						case 1:							
+							commonPlayers[i].hit(dealCard(), j);
+							break;
+						case 2:
+							commonPlayers[i].stand(j);
+							break;
+						case 3:
+							commonPlayers[i].doubleUp(dealCard(), j);
+							break;
+						case 4:
+							commonPlayers[i].split(j);
+							commonPlayers[i].hit(dealCard(), j);							
+							commonPlayers[i].hit(dealCard(), j+1);
+							 // We need to continue to make decision.
+							break;
+						default:
+							;
+					
+					}
+					hasNextAction = commonPlayers[i].showAvailableActions(j);
+
+				}
+			
+			}			
+		}
+		
+		// Dealer's turn.
+		boolean hasNextAction = dealer.showAvailableActions(0);
+		while( hasNextAction ) {
+			if( !dealer.getDealerHand().canStand() ) {
+				dealer.hit(dealCard());
+			}
+			else {
+				dealer.stand();
+			}
+			hasNextAction = dealer.showAvailableActions(0);
+		}
+		
+		// Every player duel with dealer.
+		for( int i = 0; i < commonPlayers.length; i++ ) {			
+			// Show all available actions for each hand.
+			for( int j = 0; j < commonPlayers[i].getPlayerHand().size(); j++ ) {
+				int res = dealer.compare(commonPlayers[i].getPlayerHand().get(j));	
+				int stake = commonPlayers[i].getPlayerHand().get(j).getStake();
+				if( res == 1 ) {
+					System.out.println("Dealer wins!");					
+					dealer.setCash(stake);
+					commonPlayers[i].setCash(-stake);				
+				}
+				else if( res == 0 ) {
+					System.out.println("Draw!");
+				}
+				else {
+					System.out.println("Player" + i + " wins!");
+					dealer.setCash(-stake);
+					commonPlayers[i].setCash(stake);
+				}
+				System.out.println("Player" + i + "'s cash: " + commonPlayers[i].getCash());
+				System.out.println("Dealer's cash: " + dealer.getCash());
+			}
+		}
+		
+		
+		if( needShuffle() ) {
+			int numOfDecks = this.card.length / 13;
+			shuffle(numOfDecks);
+		}
+	}
+
+	private void newRoundInitialize() {
+		this.dealer.newHand();
+		// Every player need set stake.
+		for( int i = 0; i < commonPlayers.length; i++ ) {
+			System.out.print("Player" + i + " ");
+			commonPlayers[i].newHand();
+		}
+	}
+	
+	private boolean oneMoreRound() {
+		
+		System.out.println("Do you want one more round? [y/n]: ");
+		Scanner scan = new Scanner(System.in);
+		String choice = "n";
+		try{
+	         choice = scan.nextLine();	
+	         if( choice.equals("y") ) {
+	        	 return true;
+	         }
+	         else {
+	        	 return false;
+	         }
+	    }
+		catch(InputMismatchException e){
+	         System.out.println("Exception thrown  :" + e);
+	    }		
+		return false;
+	}
+	
+}
